@@ -127,25 +127,24 @@ class AlgaeMonitorApp:
         threading.Thread(target=timer_loop, daemon=True).start()
 
     def sync_to_cloud(self, device_id, values_dict):
-        """背景傳送完整數據包到 Google Sheets (純數字模式)"""
+        """背景傳送完整數據包到 Google Sheets (對齊 final_data)"""
         if not self.cloud_sync.get() or CLOUD_URL == "YOUR_GOOGLE_SCRIPT_URL_HERE":
             return
             
         def task():
             try:
-                # 準備傳送給 GAS 的資料格式，完全對齊 Arduino 輸出的 Key
+                # 使用與 GAS 對應的 Key
                 payload = {
                     "device_id": device_id,
-                    "t": values_dict.get("t", "---"),
-                    "ph": values_dict.get("ph", "---"),
-                    "tds": values_dict.get("tds", "---"),
-                    "ec": values_dict.get("ec", "---"),
-                    "turb": values_dict.get("turb", "---"),
-                    "lux": values_dict.get("lux", "---"),
-                    "c2b": values_dict.get("c2b", "---"),
-                    "c2c": values_dict.get("c2c", "---")
+                    "temp": values_dict.get('t'),
+                    "ph": values_dict.get('ph'),
+                    "tds": values_dict.get('tds'),
+                    "ec": values_dict.get('ec'),
+                    "turb": values_dict.get('turb'),
+                    "lux": values_dict.get('lux'),
+                    "c2b": values_dict.get('c2b'),
+                    "c2c": values_dict.get('c2c')
                 }
-                # 傳送 POST 請求
                 response = requests.post(CLOUD_URL, json=payload, timeout=5)
                 if response.status_code != 200:
                     print(f"雲端同步失敗: {response.status_code}")
@@ -164,8 +163,7 @@ class AlgaeMonitorApp:
                     line = ser.readline().decode('utf-8', errors='ignore').strip()
                     if not line: continue
                     
-                    # 除錯用：印出原始收到的字串
-                    print(f"收到原始數據: {line}")
+                    print(f"DEBUG - 收到數據: {line}")
                     
                     try:
                         data = json.loads(line)
@@ -173,30 +171,46 @@ class AlgaeMonitorApp:
                         device_id = data.get("id", "Unknown")
                         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
-                        # 檢查 v 是否為空
-                        if not v:
-                            self.status_bar.config(text=f"警告: 收到空數據包 ({device_id})")
-                            continue
+                        # --- 核心修復：強制對齊所有感測器數據 ---
+                        final_data = {}
+                        # 定義 Arduino 可能傳出的所有 Key 變體
+                        key_map = {
+                            "t": ["t", "temp", "temperature"],
+                            "ph": ["ph", "ph_val"],
+                            "tds": ["tds", "tds_val"],
+                            "ec": ["ec", "ec_val"],
+                            "turb": ["turb", "turbidity"],
+                            "lux": ["lux", "light"],
+                            "c2b": ["c2b", "co2b"],
+                            "c2c": ["c2c", "co2c"]
+                        }
 
-                        # 更新 UI 顯示與資料準備 (直接對齊 Arduino JSON 欄位)
-                        current_values = {}
-                        for key in self.sensor_keys:
-                            val = v.get(key, "---")
-                            current_values[key] = val
+                        for master_key, variants in key_map.items():
+                            val = None
+                            for variant in variants:
+                                if variant in v:
+                                    val = v[variant]
+                                    break
                             
-                            if self.status[key].get():
-                                self.data_vars[key].set(str(val))
+                            if val is not None:
+                                final_data[master_key] = val
+                                # 更新 UI
+                                if self.status[master_key].get():
+                                    self.data_vars[master_key].set(f"{val}")
+                                else:
+                                    self.data_vars[master_key].set("已關閉")
                             else:
-                                self.data_vars[key].set("已關閉")
+                                final_data[master_key] = "---"
+                                self.data_vars[master_key].set("無數據")
+
+                        # --- 確保同步與上傳使用的是這份 final_data ---
+                        self.save_to_buffer(ts, device_id, final_data)
+                        self.sync_to_cloud(device_id, final_data)
+                        self.status_bar.config(text=f"數據更新成功: {device_id}")
                         
-                        # 一次性存入 Buffer 並上傳雲端
-                        self.save_to_buffer(ts, device_id, current_values)
-                        self.sync_to_cloud(device_id, current_values)
-                        self.status_bar.config(text=f"成功接收來自 {device_id} 的數據")
-                        
-                    except json.JSONDecodeError:
-                        print(f"JSON 解析失敗: {line}")
-                        self.status_bar.config(text="數據格式錯誤，請檢查 Arduino")
+                    except Exception as e:
+                        print(f"解析錯誤: {e}")
+                        self.status_bar.config(text="數據解析失敗")
         except Exception as e:
             self.status_bar.config(text=f"錯誤: {port} 已斷開 ({e})")
 
