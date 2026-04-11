@@ -36,8 +36,15 @@ def get_split_filename(timestamp_str):
             time_range = "1200-2359"
         
         return os.path.join(DESKTOP_PATH, f"split_{date_str}_{time_range}.csv")
-    except:
-        # 如果解析失敗，存到一個預設檔案
+    except ValueError as e:
+        # 時間戳格式不正確
+        print(f"⚠️ 警告: 無法解析時間戳 '{timestamp_str}' (格式錯誤)")
+        print(f"   期望格式: YYYY-MM-DD HH:MM:SS (例如: 2026-04-11 14:30:01)")
+        print(f"   錯誤詳情: {e}\n")
+        return os.path.join(DESKTOP_PATH, "split_error_logs.csv")
+    except Exception as e:
+        # 其他異常
+        print(f"❌ 錯誤: 處理時間戳 '{timestamp_str}' 時發生未知錯誤: {e}\n")
         return os.path.join(DESKTOP_PATH, "split_error_logs.csv")
 
 def get_csv_header():
@@ -85,15 +92,21 @@ def main():
                     
                     for row in reader:
                         # 跳過空行或標題列
-                        if not row or row[0] in ["時間", "Timestamp"]:
+                        if not row:
+                            continue
+                        
+                        # 檢查是否為標題行（多種可能的格式）
+                        first_cell = row[0].strip() if row else ""
+                        if first_cell in ["時間", "Timestamp", "時間戳", "Date", "datetime"]:
                             continue
                             
                         # 確認該行至少有時間戳和裝置 ID (前兩欄)
                         if len(row) < 2:
+                            print(f"⚠️ 警告: 數據行列數不足 (只有 {len(row)} 欄): {row}")
                             continue
                         
-                        timestamp = row[0]
-                        device_id = row[1]
+                        timestamp = row[0].strip()
+                        device_id = row[1].strip()
                         
                         # 根據該行數據的時間戳記決定要存到哪個 12 小時檔案
                         target_file = get_split_filename(timestamp)
@@ -105,6 +118,7 @@ def main():
                             # 如果是新檔案，先寫入標題列
                             if not file_exists:
                                 writer.writerow(get_csv_header())
+                                print(f"✓ 新建檔案: {os.path.basename(target_file)}")
                             # 寫入完整行數據
                             writer.writerow(row)
                     
@@ -113,9 +127,9 @@ def main():
                     with open(BOOKMARK_FILE, 'w') as bf:
                         bf.write(str(last_pos))
                         
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] 數據同步中... 主檔案: {current_size} bytes | 位置: {last_pos}")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] ✓ 同步完成 | 主檔案: {current_size} bytes | 讀取位置: {last_pos}")
             except Exception as e:
-                print(f"讀取時發生錯誤: {e}")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 讀取時發生錯誤: {e}")
                     
         # 每 10 秒檢查一次主檔案
         time.sleep(10)
