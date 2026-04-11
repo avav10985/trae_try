@@ -167,3 +167,8 @@ class AlgaeMonitorApp:
             return
         for port in ports:
             threading.Thread(target=self.handle_serial, args=(port,), daemon=True).start()
+            
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = AlgaeMonitorApp(root)
+    root.mainloop()
