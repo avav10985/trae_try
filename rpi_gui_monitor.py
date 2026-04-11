@@ -86,16 +86,16 @@ class AlgaeMonitorApp:
         self.status_bar.pack(side="bottom", fill="x")
 
     def save_to_buffer(self, timestamp, device_id, values_dict):
-        """將整行數據存入緩衝區 (帶單位格式)"""
+        """將整行數據存入緩衝區 (標題帶單位，數據格為純數字)"""
         with self.buffer_lock:
             row = [timestamp, device_id]
             for key in self.sensor_keys:
                 if self.status[key].get():
                     val = values_dict.get(key, "---")
-                    # 將數值與單位結合，例如 "25.5°C"
-                    row.append(f"{val}{self.units[key]}")
+                    # 數據格內只存純數字，方便 Excel/Google Sheets 繪圖運算
+                    row.append(val)
                 else:
-                    row.append("已關閉")
+                    row.append("OFF")
             
             self.data_buffer.append(row)
             if len(self.data_buffer) >= BUFFER_SIZE:
@@ -127,23 +127,23 @@ class AlgaeMonitorApp:
         threading.Thread(target=timer_loop, daemon=True).start()
 
     def sync_to_cloud(self, device_id, values_dict):
-        """背景傳送完整數據包到 Google Sheets"""
+        """背景傳送完整數據包到 Google Sheets (純數字模式)"""
         if not self.cloud_sync.get() or CLOUD_URL == "YOUR_GOOGLE_SCRIPT_URL_HERE":
             return
             
         def task():
             try:
-                # 準備傳送給 GAS 的資料格式，Key 需與 GAS 對應
+                # 準備傳送給 GAS 的資料格式，維持純數字以利雲端繪圖
                 payload = {
                     "device_id": device_id,
-                    "temp": values_dict.get("t"),
-                    "ph": values_dict.get("ph"),
-                    "tds": values_dict.get("tds"),
-                    "ec": values_dict.get("ec"),
-                    "turb": values_dict.get("turb"),
-                    "lux": values_dict.get("lux"),
-                    "co2b": values_dict.get("c2b"),
-                    "co2c": values_dict.get("c2c")
+                    "temp": values_dict.get("t", "---"),
+                    "ph": values_dict.get("ph", "---"),
+                    "tds": values_dict.get("tds", "---"),
+                    "ec": values_dict.get("ec", "---"),
+                    "turb": values_dict.get("turb", "---"),
+                    "lux": values_dict.get("lux", "---"),
+                    "co2b": values_dict.get("c2b", "---"),
+                    "co2c": values_dict.get("c2c", "---")
                 }
                 # 傳送 POST 請求
                 response = requests.post(CLOUD_URL, json=payload, timeout=5)
