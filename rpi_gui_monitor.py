@@ -162,28 +162,49 @@ class AlgaeMonitorApp:
             while True:
                 if ser.in_waiting > 0:
                     line = ser.readline().decode('utf-8', errors='ignore').strip()
-                    if line:
-                        try:
-                            data = json.loads(line)
-                            v = data.get("v", {})
-                            device_id = data.get("id", "Unknown")
-                            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    if not line: continue
+                    
+                    # 除錯用：印出原始收到的字串
+                    print(f"收到原始數據: {line}")
+                    
+                    try:
+                        data = json.loads(line)
+                        v = data.get("v", {})
+                        device_id = data.get("id", "Unknown")
+                        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        # 檢查 v 是否為空
+                        if not v:
+                            self.status_bar.config(text=f"警告: 收到空數據包 ({device_id})")
+                            continue
+
+                        # 更新 UI 顯示與資料準備
+                        current_values = {}
+                        for key in self.sensor_keys:
+                            # 支援多種 Key 格式 (例如 't' 或 'temp')
+                            val = v.get(key)
+                            if val is None and key == "t": val = v.get("temp")
+                            if val is None and key == "ph": val = v.get("ph_val")
                             
-                            # 更新 UI 顯示
-                            for key in self.sensor_keys:
-                                if key in v:
-                                    if self.status[key].get():
-                                        self.data_vars[key].set(f"{v[key]}")
-                                    else:
-                                        self.data_vars[key].set("已關閉")
-                            
-                            # 一次性存入 Buffer 並上傳雲端 (整組數據打包)
-                            self.save_to_buffer(ts, device_id, v)
-                            self.sync_to_cloud(device_id, v)
-                        except Exception as e:
-                            print(f"解析錯誤: {e}")
+                            if val is not None:
+                                current_values[key] = val
+                                if self.status[key].get():
+                                    self.data_vars[key].set(f"{val}")
+                                else:
+                                    self.data_vars[key].set("已關閉")
+                            else:
+                                current_values[key] = "---"
+                        
+                        # 一次性存入 Buffer 並上傳雲端
+                        self.save_to_buffer(ts, device_id, current_values)
+                        self.sync_to_cloud(device_id, current_values)
+                        self.status_bar.config(text=f"成功接收來自 {device_id} 的數據")
+                        
+                    except json.JSONDecodeError:
+                        print(f"JSON 解析失敗: {line}")
+                        self.status_bar.config(text="數據格式錯誤，請檢查 Arduino")
         except Exception as e:
-            self.status_bar.config(text=f"錯誤: {port} 已斷開")
+            self.status_bar.config(text=f"錯誤: {port} 已斷開 ({e})")
 
     def start_serial_threads(self):
         ports = [p.device for p in serial.tools.list_ports.comports() if 'USB' in p.description or 'ACM' in p.device]
