@@ -26,11 +26,15 @@ class AlgaeMonitorApp:
         self.root.title("藻類比賽 - 數據監測儀表板 (SD卡保護版)")
         self.root.geometry("800x600")
         
-        # 感測器狀態與標籤
+        # 感測器狀態、標籤與單位
         self.sensor_keys = ["t", "ph", "tds", "ec", "turb", "lux", "c2b", "c2c"]
         self.labels = {
-            "t": "溫度 (°C)", "ph": "酸鹼 (pH)", "tds": "溶解 (ppm)", "ec": "導電 (mS/cm)",
-            "turb": "濁度 (V)", "lux": "光照 (lx)", "c2b": "CO2_B (ppm)", "c2c": "CO2_C (ppm)"
+            "t": "溫度", "ph": "酸鹼", "tds": "溶解", "ec": "導電",
+            "turb": "濁度", "lux": "光照", "c2b": "CO2_B", "c2c": "CO2_C"
+        }
+        self.units = {
+            "t": "°C", "ph": "pH", "tds": "ppm", "ec": "mS/cm",
+            "turb": "V", "lux": "lx", "c2b": "ppm", "c2c": "ppm"
         }
         self.status = {key: tk.BooleanVar(value=True) for key in self.sensor_keys}
         self.data_vars = {key: tk.StringVar(value="---") for key in self.sensor_keys}
@@ -47,8 +51,10 @@ class AlgaeMonitorApp:
         
         # 初始化 CSV
         if not os.path.exists(CSV_FILE):
-            with open(CSV_FILE, mode='w', newline='') as f:
-                header = ["Timestamp", "Device", "Temp", "pH", "TDS", "EC", "Turb", "Lux", "CO2_B", "CO2_C"]
+            with open(CSV_FILE, mode='w', newline='', encoding='utf-8-sig') as f:
+                header = ["時間", "裝置"]
+                for key in self.sensor_keys:
+                    header.append(f"{self.labels[key]}({self.units[key]})")
                 csv.writer(f).writerow(header)
 
     def setup_ui(self):
@@ -64,7 +70,7 @@ class AlgaeMonitorApp:
         for key in self.sensor_keys:
             frame = tk.Frame(display_frame)
             frame.pack(fill="x", pady=5, padx=10)
-            tk.Label(frame, text=self.labels[key], font=("Arial", 12), width=15, anchor="w").pack(side="left")
+            tk.Label(frame, text=f"{self.labels[key]} ({self.units[key]})", font=("Arial", 12), width=15, anchor="w").pack(side="left")
             tk.Label(frame, textvariable=self.data_vars[key], font=("Arial", 14, "bold"), fg="blue").pack(side="left")
 
         control_frame = tk.LabelFrame(main_frame, text="監控開關 (勾選以記錄)", font=("Arial", 14))
@@ -80,16 +86,16 @@ class AlgaeMonitorApp:
         self.status_bar.pack(side="bottom", fill="x")
 
     def save_to_buffer(self, timestamp, device_id, values_dict):
-        """將整行數據存入緩衝區 (水平模式)"""
+        """將整行數據存入緩衝區 (帶單位格式)"""
         with self.buffer_lock:
-            # 依照順序排列：t, ph, tds, ec, turb, lux, c2b, c2c
             row = [timestamp, device_id]
             for key in self.sensor_keys:
-                # 如果該感測器沒開啟，填入 "N/A"
                 if self.status[key].get():
-                    row.append(values_dict.get(key, "---"))
+                    val = values_dict.get(key, "---")
+                    # 將數值與單位結合，例如 "25.5°C"
+                    row.append(f"{val}{self.units[key]}")
                 else:
-                    row.append("OFF")
+                    row.append("已關閉")
             
             self.data_buffer.append(row)
             if len(self.data_buffer) >= BUFFER_SIZE:
@@ -100,7 +106,8 @@ class AlgaeMonitorApp:
         if not self.data_buffer:
             return
         try:
-            with open(CSV_FILE, mode='a', newline='') as f:
+            # 使用 utf-8-sig 確保 Excel 打開中文不亂碼
+            with open(CSV_FILE, mode='a', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
                 writer.writerows(self.data_buffer)
             self.data_buffer = []
