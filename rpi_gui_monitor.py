@@ -92,7 +92,6 @@ class AlgaeMonitorApp:
             for key in self.sensor_keys:
                 if self.status[key].get():
                     val = values_dict.get(key, "---")
-                    # 數據格內只存純數字，方便 Excel/Google Sheets 繪圖運算
                     row.append(val)
                 else:
                     row.append("OFF")
@@ -106,7 +105,6 @@ class AlgaeMonitorApp:
         if not self.data_buffer:
             return
         try:
-            # 使用 utf-8-sig 確保 Excel 打開中文不亂碼
             with open(CSV_FILE, mode='a', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
                 writer.writerows(self.data_buffer)
@@ -127,13 +125,12 @@ class AlgaeMonitorApp:
         threading.Thread(target=timer_loop, daemon=True).start()
 
     def sync_to_cloud(self, device_id, values_dict):
-        """背景傳送完整數據包到 Google Sheets (對齊 final_data)"""
-        if not self.cloud_sync.get() or CLOUD_URL == "YOUR_GOOGLE_SCRIPT_URL_HERE":
+        """背景傳送完整數據包到 Google Sheets"""
+        if not self.cloud_sync.get() or "YOUR_GOOGLE_SCRIPT_URL_HERE" in CLOUD_URL:
             return
             
         def task():
             try:
-                # 使用與 GAS 對應的 Key
                 payload = {
                     "device_id": device_id,
                     "temp": values_dict.get('t'),
@@ -151,7 +148,6 @@ class AlgaeMonitorApp:
             except Exception as e:
                 print(f"網路連線錯誤: {e}")
                 
-        # 使用執行緒背景執行，不影響即時監控
         threading.Thread(target=task, daemon=True).start()
 
     def handle_serial(self, port):
@@ -163,56 +159,31 @@ class AlgaeMonitorApp:
                     line = ser.readline().decode('utf-8', errors='ignore').strip()
                     if not line: continue
                     
-                    print(f"DEBUG - 收到數據: {line}")
-                    
                     try:
                         data = json.loads(line)
                         v = data.get("v", {})
                         device_id = data.get("id", "Unknown")
                         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
-                        # --- 核心修復：強制對齊所有感測器數據 ---
                         final_data = {}
-                        # 定義 Arduino 可能傳出的所有 Key 變體
-                        key_map = {
-                            "t": ["t", "temp", "temperature"],
-                            "ph": ["ph", "ph_val"],
-                            "tds": ["tds", "tds_val"],
-                            "ec": ["ec", "ec_val"],
-                            "turb": ["turb", "turbidity"],
-                            "lux": ["lux", "light"],
-                            "c2b": ["c2b", "co2b"],
-                            "c2c": ["c2c", "co2c"]
-                        }
-
-                        for master_key, variants in key_map.items():
-                            val = None
-                            for variant in variants:
-                                if variant in v:
-                                    val = v[variant]
-                                    break
-                            
+                        for key in self.sensor_keys:
+                            val = v.get(key)
                             if val is not None:
-                                final_data[master_key] = val
-                                # 更新 UI
-                                if self.status[master_key].get():
-                                    self.data_vars[master_key].set(f"{val}")
-                                else:
-                                    self.data_vars[master_key].set("已關閉")
+                                final_data[key] = val
+                                if self.status[key].get():
+                                    self.data_vars[key].set(f"{val}")
                             else:
-                                final_data[master_key] = "---"
-                                self.data_vars[master_key].set("無數據")
+                                final_data[key] = "---"
+                                self.data_vars[key].set("無數據")
 
-                        # --- 確保同步與上傳使用的是這份 final_data ---
                         self.save_to_buffer(ts, device_id, final_data)
                         self.sync_to_cloud(device_id, final_data)
-                        self.status_bar.config(text=f"數據更新成功: {device_id}")
+                        self.status_bar.config(text=f"成功接收來自 {device_id} 的數據")
                         
                     except Exception as e:
                         print(f"解析錯誤: {e}")
-                        self.status_bar.config(text="數據解析失敗")
         except Exception as e:
-            self.status_bar.config(text=f"錯誤: {port} 已斷開 ({e})")
+            self.status_bar.config(text=f"錯誤: {port} 已斷開")
 
     def start_serial_threads(self):
         ports = [p.device for p in serial.tools.list_ports.comports() if 'USB' in p.description or 'ACM' in p.device]
@@ -221,6 +192,11 @@ class AlgaeMonitorApp:
             return
         for port in ports:
             threading.Thread(target=self.handle_serial, args=(port,), daemon=True).start()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = AlgaeMonitorApp(root)
+    root.mainloop()
 
 if __name__ == "__main__":
     root = tk.Tk()
