@@ -127,5 +127,5 @@ void loop() {
   serializeJson(doc, Serial);
   Serial.println();
 
-  delay(10000); // --- 優化：改為每 1 分鐘傳送一次，適合長期監測 ---
+  delay(10000); // --- 優化：改為每 10 秒鐘傳送一次，適合長期監測 ---
 }

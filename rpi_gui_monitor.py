@@ -133,17 +133,17 @@ class AlgaeMonitorApp:
             
         def task():
             try:
-                # 準備傳送給 GAS 的資料格式，維持純數字以利雲端繪圖
+                # 準備傳送給 GAS 的資料格式，完全對齊 Arduino 輸出的 Key
                 payload = {
                     "device_id": device_id,
-                    "temp": values_dict.get("t", "---"),
+                    "t": values_dict.get("t", "---"),
                     "ph": values_dict.get("ph", "---"),
                     "tds": values_dict.get("tds", "---"),
                     "ec": values_dict.get("ec", "---"),
                     "turb": values_dict.get("turb", "---"),
                     "lux": values_dict.get("lux", "---"),
-                    "co2b": values_dict.get("c2b", "---"),
-                    "co2c": values_dict.get("c2c", "---")
+                    "c2b": values_dict.get("c2b", "---"),
+                    "c2c": values_dict.get("c2c", "---")
                 }
                 # 傳送 POST 請求
                 response = requests.post(CLOUD_URL, json=payload, timeout=5)
@@ -178,22 +178,16 @@ class AlgaeMonitorApp:
                             self.status_bar.config(text=f"警告: 收到空數據包 ({device_id})")
                             continue
 
-                        # 更新 UI 顯示與資料準備
+                        # 更新 UI 顯示與資料準備 (直接對齊 Arduino JSON 欄位)
                         current_values = {}
                         for key in self.sensor_keys:
-                            # 支援多種 Key 格式 (例如 't' 或 'temp')
-                            val = v.get(key)
-                            if val is None and key == "t": val = v.get("temp")
-                            if val is None and key == "ph": val = v.get("ph_val")
+                            val = v.get(key, "---")
+                            current_values[key] = val
                             
-                            if val is not None:
-                                current_values[key] = val
-                                if self.status[key].get():
-                                    self.data_vars[key].set(f"{val}")
-                                else:
-                                    self.data_vars[key].set("已關閉")
+                            if self.status[key].get():
+                                self.data_vars[key].set(str(val))
                             else:
-                                current_values[key] = "---"
+                                self.data_vars[key].set("已關閉")
                         
                         # 一次性存入 Buffer 並上傳雲端
                         self.save_to_buffer(ts, device_id, current_values)
