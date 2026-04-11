@@ -18,7 +18,7 @@ BUFFER_SIZE = 20  # 每累積 20 筆數據寫入一次 SD 卡
 FLUSH_INTERVAL = 60  # 即使數據不夠，每 60 秒也強制寫入一次
 
 # 請貼上你的 Google Apps Script 網址
-CLOUD_URL = "YOUR_GOOGLE_SCRIPT_URL_HERE"
+CLOUD_URL = "https://script.google.com/macros/s/[REDACTED-APPS-SCRIPT-ID]/exec"
 
 class AlgaeMonitorApp:
     def __init__(self, root):
