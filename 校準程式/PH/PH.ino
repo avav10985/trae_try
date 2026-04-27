@@ -5,8 +5,8 @@
  # Product: analog pH meter Pro
  # SKU    : SEN0169
 */
-#define SensorPin A0            //pH meter Analog output to Arduino Analog Input 0
-#define Offset 0.00            //deviation compensate
+#define SensorPin A2            //pH meter Analog output to Arduino Analog Input 0
+#define Offset -1.4           //deviation compensate
 #define LED 13
 #define samplingInterval 20
 #define printInterval 800
