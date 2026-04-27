@@ -91,29 +91,45 @@ void loop() {
   if (currentTemp < -50) currentTemp = 25.0; // 錯誤處理
   v["t"] = currentTemp;
 
-  // 2. pH (使用 V2 精確公式與溫度補償)
+  // 2. pH (兩點校準)
+  // 校準參數來自 PH_TwoPoint 校準程式
+  //   V7 = 1.8629 V (pH 7.00),  V4 = 1.0223 V (pH 4.00)
   float phAvgADC = getAverageRead(PH_PIN);
   float phVoltage = phAvgADC * (5.0 / 1023.0);
-  // 基礎公式 pH = 7 + (V_neutral - V) / Slope
-  // 這裡先提供標準係數，校準後需修改 3.5 這個值
-  v["ph"] = 3.5 * phVoltage; 
+  v["ph"] = 3.5686 * phVoltage + 0.3519;
 
-  // 3. TDS (使用溫度補償公式)
+  // 3. TDS (DFRobot 官方公式 + 溫度補償 + 校準係數 K)
+  // K 來自 GravityTDS 校準程式 (cal:<known_ppm>)
+  const float TDS_K = 0.60f;
   float tdsAvgADC = getAverageRead(TDS_PIN);
   float tdsVoltage = tdsAvgADC * (5.0 / 1023.0);
   float compensationCoefficient = 1.0 + 0.02 * (currentTemp - 25.0);
   float compensationVolatge = tdsVoltage / compensationCoefficient;
-  // DFRobot 官方 TDS V2 轉換公式
-  float tdsValue = (133.42 * pow(compensationVolatge, 3) - 255.86 * pow(compensationVolatge, 2) + 857.39 * compensationVolatge) * 0.5;
+  float tdsValue = (133.42 * pow(compensationVolatge, 3) - 255.86 * pow(compensationVolatge, 2) + 857.39 * compensationVolatge) * 0.5 * TDS_K;
   v["tds"] = (int)tdsValue;
 
-  // 4. EC (導電度/鹽度)
+  // 4. EC (DFR0300-H 公式 + 溫度補償 + 校準係數 K, 單位 mS/cm)
+  // K 來自 DFRobot_EC10 校準程式 (calec)
+  // 公式來自函式庫: rawEC = V_mV * 1000 / RES2(820) / ECREF(200) = V_mV / 164
+  const float EC_K = 0.85f;
   float ecAvgADC = getAverageRead(EC_PIN);
-  v["ec"] = (int)ecAvgADC; // 建議校準後換算成 ms/cm
+  float ecVoltage_mV = ecAvgADC * (5000.0 / 1023.0);
+  float ecRaw = ecVoltage_mV / 164.0;
+  float ecTempCoeff = 1.0 + 0.0185 * (currentTemp - 25.0);
+  float ecValue = ecRaw * EC_K / ecTempCoeff;
+  v["ec"] = ecValue;
 
-  // 5. 濁度 (Turbidity)
+  // 5. 濁度 (SEN0189, 單位 NTU)
+  // DFRobot 官方公式: NTU = -1120.4*V² + 5742.3*V - 4352.9
+  // V > 4.2V → 視為 0 NTU(清水);V < 2.5V → 視為 3000 NTU(飽和上限)
+  // 注意:模組上的 A/D 切換開關必須打到 A(類比模式)
   float turbAvgADC = getAverageRead(TURBIDITY_PIN);
-  v["turb"] = turbAvgADC * (5.0 / 1023.0);
+  float turbVoltage = turbAvgADC * (5.0 / 1023.0);
+  float turbNTU;
+  if (turbVoltage > 4.2)      turbNTU = 0;
+  else if (turbVoltage < 2.5) turbNTU = 3000;
+  else turbNTU = -1120.4 * turbVoltage * turbVoltage + 5742.3 * turbVoltage - 4352.9;
+  v["turb"] = turbNTU;
 
   // 6. 光照 (BH1750)
   v["lux"] = lightMeter.readLightLevel();

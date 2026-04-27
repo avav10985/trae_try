@@ -14,7 +14,7 @@ DFRobot_EC10 ec;
 
 void setup()
 {
-  Serial.begin(9600);  
+  Serial.begin(115200);  
   sensors.begin(); // 啟動溫度感測器
   ec.begin();      // 初始化 EC 模組，會從 EEPROM 讀取之前的校準數據
 }

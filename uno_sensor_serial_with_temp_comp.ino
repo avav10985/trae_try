@@ -91,12 +91,13 @@ void loop() {
   if (currentTemp < -50) currentTemp = 25.0; // 錯誤處理
   v["t"] = currentTemp;
 
-  // 2. pH (兩點校準 + 溫度補償)
-  // 校準參數來自 PH_TwoPoint 校準程式
-  //   V7 = 1.8629 V (pH 7.00),  V4 = 1.0223 V (pH 4.00)
+  // 2. pH (使用 V2 精確公式與溫度補償)
   float phAvgADC = getAverageRead(PH_PIN);
   float phVoltage = phAvgADC * (5.0 / 1023.0);
-  float phRaw = 3.5686 * phVoltage + 0.3519;
+  // 基礎公式 pH = 7 + (V_neutral - V) / Slope
+  // 這裡先提供標準係數，校準後需修改 3.5 這個值
+  float phRaw = 3.5 * phVoltage;
+  // 添加溫度補償：簡單補償公式 pH_corrected = pH_raw + (T - 25) * 0.003
   float phCompensated = phRaw + (currentTemp - 25.0) * 0.003;
   v["ph"] = phCompensated;
 
