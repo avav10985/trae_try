@@ -86,11 +86,16 @@ class AlgaeMonitorApp:
         self.status_bar.pack(side="bottom", fill="x")
 
     def save_to_buffer(self, timestamp, device_id, values_dict):
-        """將整行數據存入緩衝區。checkbox 與斷線都已在 handle_serial 統一轉為 -1"""
+        """將整行數據存入緩衝區 (標題帶單位，數據格為純數字)"""
         with self.buffer_lock:
             row = [timestamp, device_id]
             for key in self.sensor_keys:
-                row.append(values_dict.get(key, -1))
+                if self.status[key].get():
+                    val = values_dict.get(key, "---")
+                    row.append(val)
+                else:
+                    row.append("OFF")
+            
             self.data_buffer.append(row)
             if len(self.data_buffer) >= BUFFER_SIZE:
                 self.flush_buffer()
@@ -167,22 +172,16 @@ class AlgaeMonitorApp:
                         device_id = data.get("id", "Unknown")
                         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
-                        # 統一斷線/取消慣例:checkbox 取消、韌體沒送、感測器斷線 → 一律 -1
                         final_data = {}
                         for key in self.sensor_keys:
                             val = v.get(key)
-                            if not self.status[key].get():
-                                final_data[key] = -1
-                                self.data_vars[key].set("已關閉")
-                            elif val is None:
-                                final_data[key] = -1
-                                self.data_vars[key].set("⚠ 未送")
-                            elif val == -1:
-                                final_data[key] = -1
-                                self.data_vars[key].set("⚠ 未接")
-                            else:
+                            if val is not None:
                                 final_data[key] = val
-                                self.data_vars[key].set(f"{val}")
+                                if self.status[key].get():
+                                    self.data_vars[key].set(f"{val}")
+                            else:
+                                final_data[key] = "---"
+                                self.data_vars[key].set("無數據")
 
                         self.save_to_buffer(ts, device_id, final_data)
                         self.sync_to_cloud(device_id, final_data)
