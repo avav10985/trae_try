@@ -1,0 +1,71 @@
+"""
+分析模組共用設定。樹梅派 / Windows 都可用,改下面路徑即可。
+"""
+import os
+import platform
+
+# --- 主資料來源 ---
+# 樹梅派預設位置
+if platform.system() == "Linux":
+    DESKTOP_PATH = os.path.expanduser("~/Desktop")
+else:
+    # Windows 開發環境(改成你電腦上的測試路徑)
+    DESKTOP_PATH = os.path.expanduser("~/Desktop")
+
+CSV_FILE = os.path.join(DESKTOP_PATH, "algae_monitor_data.csv")
+
+# --- 輸出位置 ---
+ALERT_LOG = os.path.join(DESKTOP_PATH, "alerts.log")
+REPORT_DIR = os.path.join(DESKTOP_PATH, "daily_reports")  # 每日子資料夾在內
+
+# --- CSV 欄位定義(必須與 rpi_gui_monitor.py 同步)---
+SENSOR_COLS = [
+    "溫度(°C)",
+    "酸鹼(pH)",
+    "溶解(ppm)",       # SEN0244 直測 TDS,海水會飽和
+    "TDS(EC)(ppm)",   # 由 EC 推算的 TDS
+    "導電(mS/cm)",
+    "濁度(NTU)",
+    "光照(lx)",
+    "CO2_B(ppm)",
+    "CO2_C(ppm)",
+]
+
+# --- 海水藻類監測的硬閾值(超出 = 立即警告)---
+# 上下限根據常見海水藻類培養條件;可依藻種微調
+HARD_LIMITS = {
+    "溫度(°C)":      (15, 35),
+    "酸鹼(pH)":      (6.5, 9.5),
+    "TDS(EC)(ppm)": (15000, 50000),  # 海水 ~32500;偏離太多 = 異常
+    "導電(mS/cm)":   (25, 60),
+    "濁度(NTU)":     (0, 3000),
+    "光照(lx)":      (0, 50000),
+    "CO2_B(ppm)":    (200, 5000),
+    "CO2_C(ppm)":    (200, 5000),
+}
+
+# --- 監測程式參數 ---
+CHECK_INTERVAL_SEC = 60       # 多久檢查一次 CSV
+ZSCORE_WINDOW_HOURS = 24      # 滑動 Z-score 用過去 N 小時的資料
+ZSCORE_THRESHOLD = 3.0        # 超過 N 個標準差視為異常
+DISCONNECT_WINDOW_MIN = 30    # 過去 N 分鐘該欄全是 -1 → 視為斷線
+
+# --- 日報參數 ---
+DAILY_REPORT_HOUR = 7         # 每天幾點產生(若用 cron)
+
+# --- Email 警告(Gmail SMTP)---
+# 把以下三個值填好後,monitor.py 會在偵測到異常時寄 email
+# 取得 Gmail 應用程式密碼:Google 帳戶 → 安全性 → 兩步驟驗證 → 應用程式密碼
+EMAIL_ENABLED = False                          # 設定好之後改為 True
+EMAIL_SENDER = "your_account@gmail.com"        # 你的 Gmail 帳號
+EMAIL_APP_PASSWORD = "xxxx xxxx xxxx xxxx"     # 16 字元應用程式密碼(不是登入密碼)
+EMAIL_RECEIVER = "you@gmail.com"               # 收件信箱(可以跟 SENDER 一樣)
+EMAIL_SUBJECT_PREFIX = "[藻類監測]"            # 主旨前綴
+
+# --- matplotlib 中文字體(自動依平台選擇)---
+if platform.system() == "Windows":
+    FONT_FAMILY = ["Microsoft JhengHei", "Microsoft YaHei"]
+elif platform.system() == "Linux":
+    FONT_FAMILY = ["Noto Sans CJK TC", "Noto Sans CJK SC", "DejaVu Sans"]
+else:  # macOS
+    FONT_FAMILY = ["PingFang TC", "Heiti TC"]
