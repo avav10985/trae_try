@@ -86,53 +86,74 @@ void loop() {
   JsonObject v = doc.createNestedObject("v");
 
   // 1. 溫度 (DS18B20)
+  // 沒接時函式庫會回 -127 (DEVICE_DISCONNECTED_C);JSON 輸出 -1 標記斷線
+  // 但 currentTemp 內部用 25 當預設值,避免 TDS/EC 溫補公式算出無意義數據
   sensors.requestTemperatures();
-  currentTemp = sensors.getTempCByIndex(0);
-  if (currentTemp < -50) currentTemp = 25.0; // 錯誤處理
-  v["t"] = currentTemp;
+  float rawTemp = sensors.getTempCByIndex(0);
+  bool tempOK = (rawTemp > -50 && rawTemp < 100);
+  currentTemp = tempOK ? rawTemp : 25.0;
+  v["t"] = tempOK ? rawTemp : -1;
 
-  // 2. pH (兩點校準)
-  // 校準參數來自 PH_TwoPoint 校準程式
-  //   V7 = 1.8629 V (pH 7.00),  V4 = 1.0223 V (pH 4.00)
+  // 2. pH (兩點校準 + 斷線檢測)
+  // 校準參數來自 PH_TwoPoint:V7=1.8629V (pH 7.00), V4=1.0223V (pH 4.00)
+  // 有效電壓範圍 0.1~4.9V;範圍外 → -1 表示斷線/異常
   float phAvgADC = getAverageRead(PH_PIN);
   float phVoltage = phAvgADC * (5.0 / 1023.0);
-  v["ph"] = 3.5686 * phVoltage + 0.3519;
+  if (phVoltage < 0.1 || phVoltage > 4.9) {
+    v["ph"] = -1;
+  } else {
+    v["ph"] = 3.5686 * phVoltage + 0.3519;
+  }
 
-  // 3. TDS (DFRobot 官方公式 + 溫度補償 + 校準係數 K)
-  // K 來自 GravityTDS 校準程式 (cal:<known_ppm>)
+  // 3. TDS (DFRobot 官方公式 + 溫度補償 + 校準係數 K + 斷線檢測)
+  // K 來自 GravityTDS 校準程式 (cal:707, 707 ppm 標準液)
+  // 有效電壓範圍 0.01~4.5V;範圍外 → -1
+  // 注意:海水中此感測器會在 ~2.3V 飽和,讀值僅作趨勢用
   const float TDS_K = 0.60f;
   float tdsAvgADC = getAverageRead(TDS_PIN);
   float tdsVoltage = tdsAvgADC * (5.0 / 1023.0);
-  float compensationCoefficient = 1.0 + 0.02 * (currentTemp - 25.0);
-  float compensationVolatge = tdsVoltage / compensationCoefficient;
-  float tdsValue = (133.42 * pow(compensationVolatge, 3) - 255.86 * pow(compensationVolatge, 2) + 857.39 * compensationVolatge) * 0.5 * TDS_K;
-  v["tds"] = (int)tdsValue;
+  if (tdsVoltage < 0.01 || tdsVoltage > 4.5) {
+    v["tds"] = -1;
+  } else {
+    float compensationCoefficient = 1.0 + 0.02 * (currentTemp - 25.0);
+    float compensationVolatge = tdsVoltage / compensationCoefficient;
+    float tdsValue = (133.42 * pow(compensationVolatge, 3) - 255.86 * pow(compensationVolatge, 2) + 857.39 * compensationVolatge) * 0.5 * TDS_K;
+    v["tds"] = (int)tdsValue;
+  }
 
-  // 4. EC (DFR0300-H 公式 + 溫度補償 + 校準係數 K, 單位 mS/cm)
-  // K 來自 DFRobot_EC10 校準程式 (calec)
-  // 公式來自函式庫: rawEC = V_mV * 1000 / RES2(820) / ECREF(200) = V_mV / 164
+  // 4. EC (DFR0300-H 公式 + 溫度補償 + 校準係數 K + 斷線檢測, 單位 mS/cm)
+  // K 來自 DFRobot_EC10 校準程式 (calec, 12.88 mS/cm 校準液)
+  // 公式來自函式庫: rawEC = V_mV / 164 (RES2=820, ECREF=200)
+  // 有效電壓範圍 0.05~5.0V;ADC < 5 → -1(海水可能在 5V 附近飽和,允許上限)
   const float EC_K = 0.85f;
   float ecAvgADC = getAverageRead(EC_PIN);
-  float ecVoltage_mV = ecAvgADC * (5000.0 / 1023.0);
-  float ecRaw = ecVoltage_mV / 164.0;
-  float ecTempCoeff = 1.0 + 0.0185 * (currentTemp - 25.0);
-  float ecValue = ecRaw * EC_K / ecTempCoeff;
-  v["ec"] = ecValue;
+  if (ecAvgADC < 5) {
+    v["ec"] = -1;
+  } else {
+    float ecVoltage_mV = ecAvgADC * (5000.0 / 1023.0);
+    float ecRaw = ecVoltage_mV / 164.0;
+    float ecTempCoeff = 1.0 + 0.0185 * (currentTemp - 25.0);
+    v["ec"] = ecRaw * EC_K / ecTempCoeff;
+  }
 
-  // 5. 濁度 (SEN0189, 單位 NTU)
+  // 5. 濁度 (SEN0189, 單位 NTU + 斷線檢測)
   // DFRobot 官方公式: NTU = -1120.4*V² + 5742.3*V - 4352.9
-  // V > 4.2V → 視為 0 NTU(清水);V < 2.5V → 視為 3000 NTU(飽和上限)
+  // 正常輸出範圍 2.5~4.5V;超出 1.0~4.95V 視為斷線(SEN0189 不會輸出 < 1V)
+  // 4.2~4.95V 視為清水(0 NTU);1.0~2.5V 視為飽和(3000 NTU)
   // 注意:模組上的 A/D 切換開關必須打到 A(類比模式)
   float turbAvgADC = getAverageRead(TURBIDITY_PIN);
   float turbVoltage = turbAvgADC * (5.0 / 1023.0);
   float turbNTU;
-  if (turbVoltage > 4.2)      turbNTU = 0;
-  else if (turbVoltage < 2.5) turbNTU = 3000;
+  if (turbVoltage < 1.0 || turbVoltage > 4.95) turbNTU = -1;
+  else if (turbVoltage > 4.2)                   turbNTU = 0;
+  else if (turbVoltage < 2.5)                   turbNTU = 3000;
   else turbNTU = -1120.4 * turbVoltage * turbVoltage + 5742.3 * turbVoltage - 4352.9;
   v["turb"] = turbNTU;
 
   // 6. 光照 (BH1750)
-  v["lux"] = lightMeter.readLightLevel();
+  // 函式庫在 I2C 異常時回負值;範圍外也視為斷線
+  float lux = lightMeter.readLightLevel();
+  v["lux"] = (lux < 0 || lux > 100000) ? -1 : lux;
 
   // 7. CO2 (交替讀取 MH-Z19B & C)
   v["c2b"] = readCO2(co2SerialB);

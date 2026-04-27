@@ -34,7 +34,7 @@ class AlgaeMonitorApp:
         }
         self.units = {
             "t": "°C", "ph": "pH", "tds": "ppm", "ec": "mS/cm",
-            "turb": "V", "lux": "lx", "c2b": "ppm", "c2c": "ppm"
+            "turb": "NTU", "lux": "lx", "c2b": "ppm", "c2c": "ppm"
         }
         self.status = {key: tk.BooleanVar(value=True) for key in self.sensor_keys}
         self.data_vars = {key: tk.StringVar(value="---") for key in self.sensor_keys}

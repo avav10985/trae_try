@@ -19,7 +19,7 @@ SENSOR_LABELS = {
 }
 SENSOR_UNITS = {
     "t": "°C", "ph": "pH", "tds": "ppm", "ec": "mS/cm",
-    "turb": "V", "lux": "lx", "c2b": "ppm", "c2c": "ppm"
+    "turb": "NTU", "lux": "lx", "c2b": "ppm", "c2c": "ppm"
 }
 
 def get_split_filename(timestamp_str):
