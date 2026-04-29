@@ -170,6 +170,17 @@ ANTHROPIC_API_KEY    = "sk-ant-..."  # 想用 AI 日報才需要
         """)
     st.stop()
 
+if df.empty:
+    st.warning("⚠️ Google Sheet 連線成功,但目前沒有資料")
+    st.caption(f"欄位:{list(df.columns)}")
+    st.markdown("""
+**可能原因**:
+- Sheet 只有標題列,Pi 端還沒上傳任何資料
+- 「時間」欄位的格式 pandas 認不出來(整欄被當成無效時間丟棄)
+- Pi 上傳的時間欄欄名不是「時間」
+    """)
+    st.stop()
+
 
 # ============ 側邊欄 ============
 with st.sidebar:
