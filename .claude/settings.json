@@ -8,7 +8,9 @@
       "Bash(git ls-tree *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(python export_conversation.py \"C:/Users/maxbb/.claude/projects/d--------------AquaMind/60d92dbe-39f7-492b-b74f-7f8bc9c9b6f7.jsonl\" \"對話紀錄/對話紀錄_第6部分.md\")",
+      "Bash(python -c ' *)"
     ],
     "additionalDirectories": [
       "d:\\藻類比賽\\數據監測程式\\trae_try\\analysis"
