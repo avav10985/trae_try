@@ -10,7 +10,11 @@
       "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(python export_conversation.py \"C:/Users/maxbb/.claude/projects/d--------------AquaMind/60d92dbe-39f7-492b-b74f-7f8bc9c9b6f7.jsonl\" \"對話紀錄/對話紀錄_第6部分.md\")",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(git -C \"d:/藻類比賽/數據監測程式/AquaMind\" log --oneline -10)",
+      "Bash(git -C \"d:/藻類比賽/數據監測程式/AquaMind\" status)",
+      "Bash(git -C \"d:/藻類比賽/數據監測程式/AquaMind\" diff .claude/settings.json)",
+      "Bash(python export_conversation.py \"C:/Users/maxbb/.claude/projects/d--------------AquaMind/9a725c90-426c-43d7-80f6-d0de924817a5.jsonl\" \"對話紀錄/對話紀錄_第7部分.md\")"
     ],
     "additionalDirectories": [
       "d:\\藻類比賽\\數據監測程式\\trae_try\\analysis"
