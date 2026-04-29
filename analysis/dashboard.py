@@ -98,7 +98,8 @@ def load_data(url):
 def filter_disconnect(df):
     """把 -1 換成 NaN,只回傳 SENSOR_COLS 中存在的欄位"""
     cols = [c for c in SENSOR_COLS if c in df.columns]
-    return df[cols].replace(-1, pd.NA).infer_objects(copy=False).astype(float)
+    out = df[cols].apply(pd.to_numeric, errors="coerce")
+    return out.where(out != -1)
 
 
 # ============ AI 日報 ============
@@ -111,7 +112,8 @@ def generate_ai_report(day_df, date):
         return None, "缺 anthropic 套件:pip install anthropic"
 
     cols = [c for c in SENSOR_COLS if c in day_df.columns]
-    clean = day_df[cols].replace(-1, pd.NA).infer_objects(copy=False).astype(float)
+    clean = day_df[cols].apply(pd.to_numeric, errors="coerce")
+    clean = clean.where(clean != -1)
 
     lines = []
     for col in cols:
