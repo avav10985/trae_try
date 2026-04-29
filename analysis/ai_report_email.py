@@ -1,14 +1,17 @@
 """
-AI 自動寫日報(Claude API)。
+AI 自動寫日報(Claude API),產生後寄到 email。
+(檔名後綴 _email 表示此程式會發信。設定在 config.py)
 
 用法:
-    # 設環境變數後執行
     export ANTHROPIC_API_KEY="sk-ant-..."
-    python ai_report.py                # 處理昨天
-    python ai_report.py 2026-04-28     # 處理指定日期
+    python ai_report_email.py                # 處理昨天
+    python ai_report_email.py 2026-04-28     # 處理指定日期
 
     # 沒設 API key 時,只會印 prompt 預覽不真正呼叫 API(免費)
-    python ai_report.py --preview
+    python ai_report_email.py --preview
+
+    # 跑了但不寄信(只本地存檔)
+    python ai_report_email.py --no-email
 
 模型:
     預設 claude-haiku-4-5(最便宜,日報夠用)
@@ -17,6 +20,10 @@ AI 自動寫日報(Claude API)。
 成本(每天約 1 次):
     Haiku 4.5  ≈ $0.003 USD/天 ≈ $0.10/月
     Sonnet 4.6 ≈ $0.01  USD/天 ≈ $0.30/月
+
+寄信:
+    若 config.py 的 EMAIL_ENABLED = True 並填好帳密,
+    產生報告後會自動寄到 EMAIL_RECEIVER。
 """
 import os
 import sys
@@ -24,6 +31,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 from config import CSV_FILE, SENSOR_COLS, REPORT_DIR
+from email_helper import send_email, is_configured as email_configured
 
 API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 MODEL = "claude-haiku-4-5"
@@ -127,6 +135,7 @@ def save_report(target_date, response_text):
 def main():
     args = sys.argv[1:]
     preview = '--preview' in args
+    no_email = '--no-email' in args
 
     # 取得目標日期
     date_args = [a for a in args if not a.startswith('--')]
@@ -161,6 +170,20 @@ def main():
     print(f"\n--- Token 用量 ---")
     print(f"input:  {usage.input_tokens}")
     print(f"output: {usage.output_tokens}")
+
+    # 寄 email
+    if no_email:
+        print("\n(--no-email 模式,跳過寄信)")
+    elif not email_configured():
+        print("\n(Email 未啟用 / 設定不全,只存本地檔)")
+    else:
+        subject = f"AI 日報 - {target.strftime('%Y-%m-%d')}"
+        body = f"產生時間:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n模型:{MODEL}\n\n{text}"
+        ok, err = send_email(subject, body)
+        if ok:
+            print(f"\n✉ 已寄到 email")
+        else:
+            print(f"\n⚠ Email 寄送失敗: {err}")
 
 
 if __name__ == "__main__":

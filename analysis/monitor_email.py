@@ -1,14 +1,15 @@
 """
-即時監測 algae_monitor_data.csv,偵測異常並發出警告。
+即時監測 algae_monitor_data.csv,偵測異常並寄 email 警告。
+(檔名後綴 _email 表示此程式會發信。設定在 config.py)
 
 用法:
-    python monitor.py             # 持續執行(預設每 60 秒查一次)
-    python monitor.py --once      # 只跑一次,適合手動測試
-    python monitor.py --tail 5    # 只看最後 5 筆資料
+    python monitor_email.py             # 持續執行(預設每 60 秒查一次)
+    python monitor_email.py --once      # 只跑一次,適合手動測試
 
-警告管道(目前只記 console + log 檔):
-    要加 email / Discord / LINE,改 send_alert() 函式即可
-    log 檔在 ~/Desktop/alerts.log
+警告管道:
+    1. console(永遠開啟)
+    2. log 檔(~/Desktop/alerts.log,永遠開啟)
+    3. email(config.py 啟用後才寄)
 
 異常判定:
     1. 硬閾值超出(立即警告,severity=high)
@@ -25,11 +26,8 @@ from config import (
     CSV_FILE, ALERT_LOG, SENSOR_COLS, HARD_LIMITS,
     CHECK_INTERVAL_SEC, ZSCORE_WINDOW_HOURS, ZSCORE_THRESHOLD,
     DISCONNECT_WINDOW_MIN,
-    EMAIL_ENABLED, EMAIL_SENDER, EMAIL_APP_PASSWORD,
-    EMAIL_RECEIVER, EMAIL_SUBJECT_PREFIX,
 )
-import smtplib
-from email.mime.text import MIMEText
+from email_helper import send_email
 
 
 def load_data():
@@ -145,26 +143,6 @@ def format_alert(alert):
     return str(alert)
 
 
-def send_email(subject, body):
-    """寄 email(Gmail SMTP)。設定不全則跳過。"""
-    if not EMAIL_ENABLED:
-        return
-    if (not EMAIL_SENDER or not EMAIL_APP_PASSWORD or not EMAIL_RECEIVER
-            or "your_account" in EMAIL_SENDER or "xxxx" in EMAIL_APP_PASSWORD):
-        print("⚠ Email 設定未完成,跳過寄信")
-        return
-    try:
-        msg = MIMEText(body, _charset='utf-8')
-        msg['Subject'] = f"{EMAIL_SUBJECT_PREFIX} {subject}"
-        msg['From'] = EMAIL_SENDER
-        msg['To'] = EMAIL_RECEIVER
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
-            server.login(EMAIL_SENDER, EMAIL_APP_PASSWORD.replace(" ", ""))
-            server.send_message(msg)
-    except Exception as e:
-        print(f"⚠ Email 寄送失敗: {e}")
-
-
 def send_alert(message):
     """發送警告:console + log 檔 + (若啟用)email"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -184,7 +162,9 @@ def send_alert(message):
         subject = "🟡 統計異常"
     else:
         subject = "通知"
-    send_email(subject, full_msg)
+    ok, err = send_email(subject, full_msg)
+    if not ok and err and "EMAIL_ENABLED" not in err:
+        print(f"⚠ Email 寄送失敗: {err}")
 
 
 def run_check_once(seen_alerts):

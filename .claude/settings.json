@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(python \"d:/藻類比賽/數據監測程式/trae_try/export_conversation.py\" \"C:/Users/maxbb/.claude/projects/d--------------trae-try/f9920c48-e287-4903-9299-50ef413cbbcf.jsonl\" \"d:/藻類比賽/數據監測程式/trae_try/對話紀錄/對話紀錄_第2部分.md\")",
-      "Bash(python \"d:/藻類比賽/數據監測程式/trae_try/export_conversation.py\" \"C:/Users/maxbb/.claude/projects/d--------------trae-try/f9920c48-e287-4903-9299-50ef413cbbcf.jsonl\" \"d:/藻類比賽/數據監測程式/trae_try/對話紀錄/對話紀錄_第3部分.md\")"
+      "Bash(python \"d:/藻類比賽/數據監測程式/trae_try/export_conversation.py\" \"C:/Users/maxbb/.claude/projects/d--------------trae-try/f9920c48-e287-4903-9299-50ef413cbbcf.jsonl\" \"d:/藻類比賽/數據監測程式/trae_try/對話紀錄/對話紀錄_第3部分.md\")",
+      "Bash(python \"d:/藻類比賽/數據監測程式/trae_try/export_conversation.py\" \"C:/Users/maxbb/.claude/projects/d--------------trae-try/f9920c48-e287-4903-9299-50ef413cbbcf.jsonl\" \"d:/藻類比賽/數據監測程式/trae_try/對話紀錄/對話紀錄_第4部分.md\")"
+    ],
+    "additionalDirectories": [
+      "d:\\藻類比賽\\數據監測程式\\trae_try\\analysis"
     ]
   }
 }
