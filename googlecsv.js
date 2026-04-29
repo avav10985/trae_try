@@ -4,7 +4,7 @@ function doPost(e) {
 
   // 欄位順序：時間, 裝置ID, 溫度, pH, TDS, TDS(EC), EC, 濁度, Lux, CO2_B, CO2_C
   var rowData = [
-    new Date(),           // A: 自動生成時間
+    Utilities.formatDate(new Date(), "Asia/Taipei", "yyyy-MM-dd HH:mm:ss"),  // A: 時間(ISO 格式,避免 Sheets 本地化)
     data.device_id,       // B: 裝置名稱
     data.temp,            // C: 溫度
     data.ph,              // D: 酸鹼
