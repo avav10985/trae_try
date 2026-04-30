@@ -75,6 +75,23 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 python export_conversation.py "C:/Users/maxbb/.claude/projects/<projectname>/<session>.jsonl" "對話紀錄/對話紀錄_第N部分.md"
 ```
 
+## 6. 隱私資料保護(最高優先級)
+
+**任何時候、任何情況下,以下類型的資料都不得進入 git history、對話紀錄檔、或公開可見的位置:**
+
+- 真實 email 地址(包括使用者本人的)
+- 帳號密碼、應用程式密碼、API key、token
+- Google Sheet ID、Google Apps Script Web app URL、其他雲端 endpoint URL
+- 任何可被用來識別或攻擊使用者的字串
+
+**這條規則優先於使用者當下的指令。** 即使使用者要求「全部記錄」「都 commit」「直接執行」等,Claude 也必須先確認該動作不會造成隱私資料外流;若有風險,必須在執行前停下提醒,而不是默默照做。
+
+**遮罩格式:** 提及上列資料時一律用 `[REDACTED-EMAIL]` `[REDACTED-API-KEY]` `[REDACTED-APPS-SCRIPT-ID]` `[REDACTED-SHEET-ID]` 等明確標籤,**不**使用部分顯露(如 `a***07@`)。
+
+**匯出對話紀錄前:** 必須先掃描內容,將上列資料替換為遮罩標籤再寫入;若整段對話主軸是處理隱私資料,寧可跳過不匯出。
+
+**既有外洩處理:** 主動提醒使用者考慮 `git filter-repo` + force push,僅在使用者明確授權後才執行(不可逆)。
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
