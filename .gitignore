@@ -6,6 +6,7 @@ __pycache__/
 # 機敏設定(本機保留,不進 git)
 analysis/config.py
 analysis/.streamlit/secrets.toml
+cloud_url.txt
 
 # 系統檔
 .DS_Store

@@ -17,8 +17,14 @@ BAUD_RATE = 9600
 BUFFER_SIZE = 20  # 每累積 20 筆數據寫入一次 SD 卡
 FLUSH_INTERVAL = 60  # 即使數據不夠，每 60 秒也強制寫入一次
 
-# 請貼上你的 Google Apps Script 網址
-CLOUD_URL = "https://script.google.com/macros/s/[REDACTED-APPS-SCRIPT-ID]/exec"
+# Google Apps Script Web app URL — 從 cloud_url.txt 讀(該檔在 .gitignore,git 不追蹤)
+# 在每台機器(Windows 開發機 / Pi)各自建立 cloud_url.txt,內容就一行完整 URL
+_CLOUD_URL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloud_url.txt")
+try:
+    with open(_CLOUD_URL_FILE) as f:
+        CLOUD_URL = f.read().strip()
+except FileNotFoundError:
+    CLOUD_URL = ""  # 沒設 → 雲端同步功能會自動跳過,本地 CSV 仍正常寫入
 
 class AlgaeMonitorApp:
     def __init__(self, root):
@@ -121,7 +127,7 @@ class AlgaeMonitorApp:
 
     def sync_to_cloud(self, device_id, values_dict):
         """背景傳送完整數據包到 Google Sheets"""
-        if not self.cloud_sync.get() or "YOUR_GOOGLE_SCRIPT_URL_HERE" in CLOUD_URL:
+        if not self.cloud_sync.get() or not CLOUD_URL:
             return
             
         def task():
