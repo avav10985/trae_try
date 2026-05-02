@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 機敏設定(本機保留,不進 git)
+analysis/config.py
+analysis/.streamlit/secrets.toml
+
+# 系統檔
+.DS_Store
+Thumbs.db
