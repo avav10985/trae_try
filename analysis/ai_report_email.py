@@ -30,7 +30,8 @@ import sys
 import pandas as pd
 from datetime import datetime, timedelta
 
-from config import CSV_FILE, SENSOR_COLS, REPORT_DIR, DISCONNECT_CODE, NO_DATA_CODES
+from config import CSV_FILE, SENSOR_COLS, REPORT_DIR
+from sensor_codes import DISCONNECT_CODE, NO_DATA_CODES
 from email_helper import send_email, is_configured as email_configured
 
 API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")

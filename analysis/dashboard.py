@@ -41,6 +41,10 @@ def _get_secret(key, default=""):
 SHEET_CSV_URL = _get_secret("GOOGLE_SHEET_CSV_URL")
 ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY")
 
+from sensor_codes import (
+    DISCONNECT_CODE, USER_DISABLED_CODE, FIRMWARE_MISSING_CODE, NO_DATA_CODES,
+)
+
 SENSOR_COLS = [
     "溫度(°C)",
     "酸鹼(pH)",
@@ -53,11 +57,8 @@ SENSOR_COLS = [
     "CO2_C(ppm)",
 ]
 
-# 「無資料」三種代碼(對應 config.py;dashboard 不 import config 因此複製一份)
-DISCONNECT_CODE = -1            # 真實感測器斷線
-USER_DISABLED_CODE = -2         # 使用者 GUI 取消勾選
-FIRMWARE_MISSING_CODE = -3      # 韌體沒送
-NO_DATA_CODES = [DISCONNECT_CODE, USER_DISABLED_CODE, FIRMWARE_MISSING_CODE]
+# NO_DATA_CODES 從 sensor_codes 來,但 dashboard 用法需要 list(.isin)
+NO_DATA_CODES_LIST = list(NO_DATA_CODES)
 
 UNITS_BRIEF = {
     "溫度(°C)": "°C", "酸鹼(pH)": "", "溶解(ppm)": "ppm", "TDS(EC)(ppm)": "ppm",
@@ -105,7 +106,7 @@ def filter_disconnect(df):
     """把 -1/-2/-3 全換成 NaN,只回傳 SENSOR_COLS 中存在的欄位"""
     cols = [c for c in SENSOR_COLS if c in df.columns]
     out = df[cols].apply(pd.to_numeric, errors="coerce")
-    return out.where(~out.isin(NO_DATA_CODES))
+    return out.where(~out.isin(NO_DATA_CODES_LIST))
 
 
 # ============ AI 日報 ============
@@ -119,7 +120,7 @@ def generate_ai_report(day_df, date):
 
     cols = [c for c in SENSOR_COLS if c in day_df.columns]
     clean = day_df[cols].apply(pd.to_numeric, errors="coerce")
-    clean = clean.where(~clean.isin(NO_DATA_CODES))
+    clean = clean.where(~clean.isin(NO_DATA_CODES_LIST))
 
     lines = []
     for col in cols:

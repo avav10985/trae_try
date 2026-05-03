@@ -27,8 +27,8 @@ from datetime import datetime, timedelta
 
 from config import (
     CSV_FILE, REPORT_DIR, SENSOR_COLS, FONT_FAMILY,
-    DISCONNECT_CODE, NO_DATA_CODES,
 )
+from sensor_codes import DISCONNECT_CODE, NO_DATA_CODES
 
 # 中文字體設定
 matplotlib.rcParams['font.sans-serif'] = FONT_FAMILY

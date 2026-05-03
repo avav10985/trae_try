@@ -26,8 +26,8 @@ from config import (
     CSV_FILE, ALERT_LOG, SENSOR_COLS, HARD_LIMITS,
     CHECK_INTERVAL_SEC, ZSCORE_WINDOW_HOURS, ZSCORE_THRESHOLD,
     DISCONNECT_WINDOW_MIN,
-    DISCONNECT_CODE, NO_DATA_CODES,
 )
+from sensor_codes import DISCONNECT_CODE, NO_DATA_CODES
 from email_helper import send_email
 
 
