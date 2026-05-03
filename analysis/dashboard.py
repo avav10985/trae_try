@@ -53,6 +53,12 @@ SENSOR_COLS = [
     "CO2_C(ppm)",
 ]
 
+# 「無資料」三種代碼(對應 config.py;dashboard 不 import config 因此複製一份)
+DISCONNECT_CODE = -1            # 真實感測器斷線
+USER_DISABLED_CODE = -2         # 使用者 GUI 取消勾選
+FIRMWARE_MISSING_CODE = -3      # 韌體沒送
+NO_DATA_CODES = [DISCONNECT_CODE, USER_DISABLED_CODE, FIRMWARE_MISSING_CODE]
+
 UNITS_BRIEF = {
     "溫度(°C)": "°C", "酸鹼(pH)": "", "溶解(ppm)": "ppm", "TDS(EC)(ppm)": "ppm",
     "導電(mS/cm)": "mS/cm", "濁度(NTU)": "NTU", "光照(lx)": "lx",
@@ -96,10 +102,10 @@ def load_data(url):
 
 
 def filter_disconnect(df):
-    """把 -1 換成 NaN,只回傳 SENSOR_COLS 中存在的欄位"""
+    """把 -1/-2/-3 全換成 NaN,只回傳 SENSOR_COLS 中存在的欄位"""
     cols = [c for c in SENSOR_COLS if c in df.columns]
     out = df[cols].apply(pd.to_numeric, errors="coerce")
-    return out.where(out != -1)
+    return out.where(~out.isin(NO_DATA_CODES))
 
 
 # ============ AI 日報 ============
@@ -113,7 +119,7 @@ def generate_ai_report(day_df, date):
 
     cols = [c for c in SENSOR_COLS if c in day_df.columns]
     clean = day_df[cols].apply(pd.to_numeric, errors="coerce")
-    clean = clean.where(clean != -1)
+    clean = clean.where(~clean.isin(NO_DATA_CODES))
 
     lines = []
     for col in cols:
@@ -231,8 +237,9 @@ with tab1:
             continue
         val = latest[col]
         with cols[i % 5]:
-            if val == -1 or pd.isna(val):
-                st.metric(col, "未接", delta="⚠️", delta_color="off")
+            if pd.isna(val) or val in NO_DATA_CODES:
+                label = {-1: "未接", -2: "已關閉", -3: "未送"}.get(val, "未接")
+                st.metric(col, label, delta="⚠️", delta_color="off")
             else:
                 lo, hi = HARD_LIMITS.get(col, (None, None))
                 if lo is not None and (val < lo or val > hi):
@@ -302,7 +309,9 @@ with tab2:
                 "最大": clean.max(),
                 "標準差": clean.std(),
                 "有效筆數": clean.count(),
-                "斷線筆數": (df_view[clean.columns] == -1).sum(),
+                "真斷線筆數(-1)": (df_view[clean.columns] == DISCONNECT_CODE).sum(),
+                "已關閉筆數(-2)": (df_view[clean.columns] == USER_DISABLED_CODE).sum(),
+                "未送筆數(-3)": (df_view[clean.columns] == FIRMWARE_MISSING_CODE).sum(),
             }).round(2)
             st.dataframe(stats, use_container_width=True)
 
@@ -330,15 +339,16 @@ with tab3:
                 "類型": "硬限超出",
             })
 
-    # 斷線統計
-    disconnect_count = (df_view[[c for c in SENSOR_COLS if c in df_view.columns]] == -1).sum()
+    # 真斷線統計(只算 -1,排除使用者主動關閉的 -2 跟韌體沒送的 -3)
+    sensor_cols_present = [c for c in SENSOR_COLS if c in df_view.columns]
+    disconnect_count = (df_view[sensor_cols_present] == DISCONNECT_CODE).sum()
     disconnect_summary = disconnect_count[disconnect_count > 0].sort_values(ascending=False)
 
     col_a, col_b = st.columns(2)
     with col_a:
         st.metric("硬限異常事件", len(anomalies))
     with col_b:
-        st.metric("斷線總筆數", int(disconnect_summary.sum()) if len(disconnect_summary) > 0 else 0)
+        st.metric("真斷線總筆數", int(disconnect_summary.sum()) if len(disconnect_summary) > 0 else 0)
 
     if disconnect_summary.shape[0] > 0:
         st.write("**各感測器斷線次數:**")

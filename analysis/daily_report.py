@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 
 from config import (
     CSV_FILE, REPORT_DIR, SENSOR_COLS, FONT_FAMILY,
+    DISCONNECT_CODE, NO_DATA_CODES,
 )
 
 # 中文字體設定
@@ -59,8 +60,8 @@ def load_day(target_date, today_so_far=False):
 
 
 def replace_disconnect(df):
-    """把 -1(斷線值)換成 NaN,免得拖累統計"""
-    return df.replace(-1, pd.NA).infer_objects(copy=False)
+    """把 -1/-2/-3 三種「無資料」代碼全換成 NaN,免得拖累統計"""
+    return df.replace(list(NO_DATA_CODES), pd.NA).infer_objects(copy=False)
 
 
 def stats_table(df):
@@ -73,7 +74,8 @@ def stats_table(df):
         '最大': clean.max(),
         '標準差': clean.std(),
         '有效筆數': clean.count(),
-        '斷線筆數': (df[cols] == -1).sum(),
+        '真斷線筆數': (df[cols] == DISCONNECT_CODE).sum(),
+        '無資料總數': df[cols].isin(list(NO_DATA_CODES)).sum(),
     })
     return stats.round(2)
 
@@ -89,11 +91,11 @@ def plot_timeseries(df, output_path):
         ax.plot(clean.index, clean[col], linewidth=1)
         ax.set_ylabel(col, fontsize=10)
         ax.grid(True, alpha=0.3)
-        # 標出 -1 斷線時段(顯示成紅色短橫條於底部)
-        disc = df[df[col] == -1].index
+        # 標出無資料時段(-1/-2/-3 都算,顯示成紅色短橫條於底部)
+        disc = df[df[col].isin(list(NO_DATA_CODES))].index
         if len(disc) > 0:
             ax.scatter(disc, [ax.get_ylim()[0]] * len(disc),
-                       color='red', s=4, marker='|', label='斷線')
+                       color='red', s=4, marker='|', label='無資料')
     axes[-1].set_xlabel('時間')
     fig.suptitle("當日感測器時序", y=0.995, fontsize=14, fontweight='bold')
     plt.tight_layout()

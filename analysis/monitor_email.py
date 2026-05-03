@@ -26,6 +26,7 @@ from config import (
     CSV_FILE, ALERT_LOG, SENSOR_COLS, HARD_LIMITS,
     CHECK_INTERVAL_SEC, ZSCORE_WINDOW_HOURS, ZSCORE_THRESHOLD,
     DISCONNECT_WINDOW_MIN,
+    DISCONNECT_CODE, NO_DATA_CODES,
 )
 from email_helper import send_email
 
@@ -56,8 +57,8 @@ def check_hard_limits(df):
         if col not in df.columns:
             continue
         val = latest[col]
-        if pd.isna(val) or val == -1:
-            continue  # 斷線值不在這裡判定
+        if pd.isna(val) or val in NO_DATA_CODES:
+            continue  # 無資料(三種代碼任一)不在這裡判定
         if val < lo or val > hi:
             alerts.append({
                 'type': 'hard_limit',
@@ -81,8 +82,8 @@ def check_zscore(df):
     for col in HARD_LIMITS.keys():
         if col not in df.columns:
             continue
-        # 把 -1 過濾掉再算統計
-        series = window[col].replace(-1, pd.NA).dropna().astype(float)
+        # 把 -1/-2/-3 全過濾掉再算統計
+        series = window[col].replace(list(NO_DATA_CODES), pd.NA).dropna().astype(float)
         if len(series) < 10:
             continue
         mean = series.mean()
@@ -90,7 +91,7 @@ def check_zscore(df):
         if std < 1e-6:
             continue  # 變異太小,跳過
         val = latest[col]
-        if pd.isna(val) or val == -1:
+        if pd.isna(val) or val in NO_DATA_CODES:
             continue
         z = (val - mean) / std
         if abs(z) > ZSCORE_THRESHOLD:
@@ -107,7 +108,8 @@ def check_zscore(df):
 
 
 def check_disconnect(df):
-    """過去 N 分鐘某欄全是 -1 → 感測器疑似斷線"""
+    """過去 N 分鐘某欄全是 -1(真斷線代碼)→ 感測器疑似斷線。
+    -2(使用者關閉)/-3(韌體沒送)不會觸發警告。"""
     if df.empty:
         return []
     cutoff = df.index[-1] - timedelta(minutes=DISCONNECT_WINDOW_MIN)
@@ -118,7 +120,7 @@ def check_disconnect(df):
     for col in HARD_LIMITS.keys():
         if col not in df.columns:
             continue
-        if (window[col] == -1).all():
+        if (window[col] == DISCONNECT_CODE).all():
             alerts.append({
                 'type': 'disconnect',
                 'sensor': col,

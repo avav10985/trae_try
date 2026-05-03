@@ -30,7 +30,7 @@ import sys
 import pandas as pd
 from datetime import datetime, timedelta
 
-from config import CSV_FILE, SENSOR_COLS, REPORT_DIR
+from config import CSV_FILE, SENSOR_COLS, REPORT_DIR, DISCONNECT_CODE, NO_DATA_CODES
 from email_helper import send_email, is_configured as email_configured
 
 API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -54,7 +54,7 @@ def load_day(target_date):
 def summarize(df):
     """把當日資料壓縮成精簡摘要文字"""
     cols = [c for c in SENSOR_COLS if c in df.columns]
-    clean = df[cols].replace(-1, pd.NA).infer_objects(copy=False).astype(float)
+    clean = df[cols].replace(list(NO_DATA_CODES), pd.NA).infer_objects(copy=False).astype(float)
 
     lines = []
     for col in cols:
@@ -69,8 +69,8 @@ def summarize(df):
             f"日內變化 {delta:+.2f}"
         )
 
-    # 斷線統計
-    disc_count = (df[cols] == -1).sum()
+    # 真斷線統計(只算 -1,排除使用者關閉 -2 跟韌體沒送 -3)
+    disc_count = (df[cols] == DISCONNECT_CODE).sum()
     disc_lines = [f"- {col}: {n} 筆" for col, n in disc_count.items() if n > 0]
 
     out = [

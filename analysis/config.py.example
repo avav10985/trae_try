@@ -31,6 +31,14 @@ SENSOR_COLS = [
     "CO2_C(ppm)",
 ]
 
+# --- 「無資料」代碼(統一所有程式判讀)---
+# Pi 端 rpi_gui_monitor.py 寫入 CSV / Sheet 時用這 3 種代碼區分原因。
+# 下游的警告/統計/圖表程式據此決定要不要警告、要不要過濾。
+DISCONNECT_CODE = -1            # 真實感測器斷線 → 會觸發斷線警告
+USER_DISABLED_CODE = -2         # 使用者在 GUI 取消勾選 → 不警告(刻意關閉)
+FIRMWARE_MISSING_CODE = -3      # 韌體沒送這個欄位 → 不警告(從未實裝)
+NO_DATA_CODES = {DISCONNECT_CODE, USER_DISABLED_CODE, FIRMWARE_MISSING_CODE}
+
 # --- 海水藻類監測的硬閾值(超出 = 立即警告)---
 # 上下限根據常見海水藻類培養條件;可依藻種微調
 HARD_LIMITS = {

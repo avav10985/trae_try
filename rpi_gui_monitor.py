@@ -173,15 +173,16 @@ class AlgaeMonitorApp:
                         device_id = data.get("id", "Unknown")
                         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
-                        # 統一斷線/取消慣例:checkbox 取消、韌體沒送、感測器斷線 → 一律 -1
+                        # 三種「無資料」代碼:-1 真斷線、-2 使用者關閉、-3 韌體沒送
+                        # 下游 monitor_email 只對 -1 發警告,-2/-3 不發
                         final_data = {}
                         for key in self.sensor_keys:
                             val = v.get(key)
                             if not self.status[key].get():
-                                final_data[key] = -1
+                                final_data[key] = -2
                                 self.data_vars[key].set("已關閉")
                             elif val is None:
-                                final_data[key] = -1
+                                final_data[key] = -3
                                 self.data_vars[key].set("⚠ 未送")
                             elif val == -1:
                                 final_data[key] = -1
