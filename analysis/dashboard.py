@@ -12,7 +12,7 @@
     3. 主檔指定 analysis/dashboard.py
     4. Settings → Secrets 貼:
          GOOGLE_SHEET_CSV_URL = "..."
-         ANTHROPIC_API_KEY    = "..."
+         GEMINI_API_KEY       = "..."
     5. Deploy → 取得永久網址,手機也能看
 
 Google Sheet CSV URL 怎麼拿:
@@ -39,7 +39,7 @@ def _get_secret(key, default=""):
 
 
 SHEET_CSV_URL = _get_secret("GOOGLE_SHEET_CSV_URL")
-ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY")
+GEMINI_API_KEY = _get_secret("GEMINI_API_KEY")
 
 from sensor_codes import (
     DISCONNECT_CODE, USER_DISABLED_CODE, FIRMWARE_MISSING_CODE, NO_DATA_CODES,
@@ -111,12 +111,12 @@ def filter_disconnect(df):
 
 # ============ AI 日報 ============
 def generate_ai_report(day_df, date):
-    if not ANTHROPIC_API_KEY:
-        return None, "缺 ANTHROPIC_API_KEY"
+    if not GEMINI_API_KEY:
+        return None, "缺 GEMINI_API_KEY"
     try:
-        from anthropic import Anthropic
+        import google.generativeai as genai
     except ImportError:
-        return None, "缺 anthropic 套件:pip install anthropic"
+        return None, "缺 google-generativeai 套件:pip install google-generativeai"
 
     cols = [c for c in SENSOR_COLS if c in day_df.columns]
     clean = day_df[cols].apply(pd.to_numeric, errors="coerce")
@@ -147,13 +147,13 @@ def generate_ai_report(day_df, date):
 直接寫,不要客套也不要重複數據。"""
 
     try:
-        client = Anthropic(api_key=ANTHROPIC_API_KEY)
-        msg = client.messages.create(
-            model="claude-haiku-4-5",
-            max_tokens=600,
-            messages=[{"role": "user", "content": prompt}],
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content(
+            prompt,
+            generation_config={"max_output_tokens": 600},
         )
-        return msg.content[0].text, None
+        return response.text, None
     except Exception as e:
         return None, f"API 錯誤:{e}"
 
@@ -174,7 +174,7 @@ if df is None:
 **設定 Secrets**(本機用環境變數,Streamlit Cloud 用 secrets.toml):
 ```
 GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/XXX/export?format=csv"
-ANTHROPIC_API_KEY    = "sk-ant-..."  # 想用 AI 日報才需要
+GEMINI_API_KEY       = "AIzaSy..."  # 想用 AI 日報才需要(免費 https://aistudio.google.com/apikey)
 ```
         """)
     st.stop()
@@ -365,7 +365,7 @@ with tab3:
 # ---------- Tab 4: AI 日報 ----------
 with tab4:
     st.subheader("AI 自動日報")
-    st.caption(f"由 Claude API 產生中文日報。每次呼叫約 $0.003 USD ≈ NT$0.1")
+    st.caption(f"由 Gemini API 產生中文日報(免費,每天 1500 次配額)")
 
     selected_date = st.date_input(
         "選擇日期",
@@ -374,15 +374,15 @@ with tab4:
         max_value=df.index.max().date(),
     )
 
-    if not ANTHROPIC_API_KEY:
-        st.warning("⚠️ 還沒設定 ANTHROPIC_API_KEY,無法呼叫 Claude API")
+    if not GEMINI_API_KEY:
+        st.warning("⚠️ 還沒設定 GEMINI_API_KEY,無法呼叫 Gemini API")
 
-    if st.button("🤖 產生 AI 日報", type="primary", disabled=not ANTHROPIC_API_KEY):
+    if st.button("🤖 產生 AI 日報", type="primary", disabled=not GEMINI_API_KEY):
         day_df = df[df.index.date == selected_date]
         if day_df.empty:
             st.warning(f"{selected_date} 沒有資料")
         else:
-            with st.spinner(f"正在請 Claude 分析 {selected_date}({len(day_df)} 筆資料)..."):
+            with st.spinner(f"正在請 Gemini 分析 {selected_date}({len(day_df)} 筆資料)..."):
                 report, err = generate_ai_report(day_df, selected_date.strftime("%Y-%m-%d"))
             if err:
                 st.error(err)

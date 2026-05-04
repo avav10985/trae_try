@@ -1,9 +1,9 @@
 """
-AI 自動寫日報(Claude API),產生後寄到 email。
+AI 自動寫日報(Gemini API),產生後寄到 email。
 (檔名後綴 _email 表示此程式會發信。設定在 config.py)
 
 用法:
-    export ANTHROPIC_API_KEY="sk-ant-..."
+    export GEMINI_API_KEY="AIzaSy..."
     python ai_report_email.py                # 處理昨天
     python ai_report_email.py 2026-04-28     # 處理指定日期
 
@@ -14,12 +14,14 @@ AI 自動寫日報(Claude API),產生後寄到 email。
     python ai_report_email.py --no-email
 
 模型:
-    預設 claude-haiku-4-5(最便宜,日報夠用)
-    要更高品質改 MODEL = "claude-sonnet-4-6"
+    預設 gemini-2.0-flash(免費 tier,中文流暢、速度快)
+    daily limit 1500 次,日報每天 1 次完全用不完
 
-成本(每天約 1 次):
-    Haiku 4.5  ≈ $0.003 USD/天 ≈ $0.10/月
-    Sonnet 4.6 ≈ $0.01  USD/天 ≈ $0.30/月
+成本:
+    免費(Google AI Studio free tier)
+
+申請 key:
+    https://aistudio.google.com/apikey  (Google 帳號登入,不用刷卡)
 
 寄信:
     若 config.py 的 EMAIL_ENABLED = True 並填好帳密,
@@ -34,8 +36,8 @@ from config import CSV_FILE, SENSOR_COLS, REPORT_DIR
 from sensor_codes import DISCONNECT_CODE, NO_DATA_CODES
 from email_helper import send_email, is_configured as email_configured
 
-API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-MODEL = "claude-haiku-4-5"
+API_KEY = os.environ.get("GEMINI_API_KEY", "")
+MODEL = "gemini-2.0-flash"
 MAX_TOKENS = 600
 
 
@@ -99,25 +101,25 @@ def build_prompt(target_date, stats_text):
 控制在 250 字以內,直接寫,不要客套也不要重複數據。"""
 
 
-def call_claude(prompt):
-    """呼叫 Claude API。沒裝 anthropic 或沒 API key → 回 None"""
+def call_gemini(prompt):
+    """呼叫 Gemini API。沒裝 google-generativeai 或沒 API key → 回 None"""
     if not API_KEY:
         return None
     try:
-        from anthropic import Anthropic
+        import google.generativeai as genai
     except ImportError:
-        print("⚠ 缺 anthropic 套件,執行: pip install anthropic")
+        print("⚠ 缺 google-generativeai 套件,執行: pip install google-generativeai")
         return None
-    client = Anthropic(api_key=API_KEY)
     try:
-        msg = client.messages.create(
-            model=MODEL,
-            max_tokens=MAX_TOKENS,
-            messages=[{"role": "user", "content": prompt}],
+        genai.configure(api_key=API_KEY)
+        model = genai.GenerativeModel(MODEL)
+        response = model.generate_content(
+            prompt,
+            generation_config={"max_output_tokens": MAX_TOKENS},
         )
-        return msg.content[0].text, msg.usage
+        return response.text, response.usage_metadata
     except Exception as e:
-        print(f"Claude API 錯誤: {e}")
+        print(f"Gemini API 錯誤: {e}")
         return None
 
 
@@ -157,11 +159,11 @@ def main():
         print("=== Prompt 預覽(未呼叫 API)===\n")
         print(prompt)
         if not API_KEY:
-            print("\n💡 設 ANTHROPIC_API_KEY 環境變數後即可實際產生 AI 日報")
+            print("\n💡 設 GEMINI_API_KEY 環境變數後即可實際產生 AI 日報")
         return
 
     print(f"呼叫 {MODEL} ...")
-    result = call_claude(prompt)
+    result = call_gemini(prompt)
     if result is None:
         return
     text, usage = result
@@ -169,8 +171,8 @@ def main():
     print(f"\n✓ 已寫入:{out_path}")
     print(f"\n--- AI 日報內容 ---\n{text}")
     print(f"\n--- Token 用量 ---")
-    print(f"input:  {usage.input_tokens}")
-    print(f"output: {usage.output_tokens}")
+    print(f"input:  {usage.prompt_token_count}")
+    print(f"output: {usage.candidates_token_count}")
 
     # 寄 email
     if no_email:
