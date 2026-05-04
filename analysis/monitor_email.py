@@ -82,8 +82,9 @@ def check_zscore(df):
     for col in HARD_LIMITS.keys():
         if col not in df.columns:
             continue
-        # 把 -1/-2/-3 全過濾掉再算統計
-        series = window[col].replace(list(NO_DATA_CODES), pd.NA).dropna().astype(float)
+        # 把 -1/-2/-3 全過濾掉再算統計(用 pd.to_numeric 路徑避免舊 pandas 的 RecursionError)
+        s = pd.to_numeric(window[col], errors='coerce')
+        series = s.where(~s.isin(list(NO_DATA_CODES))).dropna()
         if len(series) < 10:
             continue
         mean = series.mean()

@@ -57,7 +57,8 @@ def load_day(target_date):
 def summarize(df):
     """把當日資料壓縮成精簡摘要文字"""
     cols = [c for c in SENSOR_COLS if c in df.columns]
-    clean = df[cols].replace(list(NO_DATA_CODES), pd.NA).infer_objects(copy=False).astype(float)
+    clean = df[cols].apply(pd.to_numeric, errors='coerce')
+    clean = clean.where(~clean.isin(list(NO_DATA_CODES)))
 
     lines = []
     for col in cols:

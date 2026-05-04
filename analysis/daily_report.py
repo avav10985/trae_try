@@ -60,14 +60,16 @@ def load_day(target_date, today_so_far=False):
 
 
 def replace_disconnect(df):
-    """把 -1/-2/-3 三種「無資料」代碼全換成 NaN,免得拖累統計"""
-    return df.replace(list(NO_DATA_CODES), pd.NA).infer_objects(copy=False)
+    """把 -1/-2/-3 三種「無資料」代碼全換成 NaN(用 pd.to_numeric 路徑,避免舊版 pandas
+    對 .astype(float) + pd.NA 的 RecursionError)"""
+    out = df.apply(pd.to_numeric, errors='coerce')
+    return out.where(~out.isin(list(NO_DATA_CODES)))
 
 
 def stats_table(df):
     """每個感測器的當日統計"""
     cols = [c for c in SENSOR_COLS if c in df.columns]
-    clean = replace_disconnect(df[cols]).astype(float)
+    clean = replace_disconnect(df[cols])
     stats = pd.DataFrame({
         '最小': clean.min(),
         '平均': clean.mean(),
@@ -83,7 +85,7 @@ def stats_table(df):
 def plot_timeseries(df, output_path):
     """所有感測器的時序圖,垂直堆疊"""
     cols = [c for c in SENSOR_COLS if c in df.columns]
-    clean = replace_disconnect(df[cols]).astype(float)
+    clean = replace_disconnect(df[cols])
     fig, axes = plt.subplots(len(cols), 1, figsize=(14, 2 * len(cols)), sharex=True)
     if len(cols) == 1:
         axes = [axes]
@@ -106,7 +108,7 @@ def plot_timeseries(df, output_path):
 def plot_correlation(df, output_path):
     """變數相關係數熱力圖"""
     cols = [c for c in SENSOR_COLS if c in df.columns]
-    clean = replace_disconnect(df[cols]).astype(float)
+    clean = replace_disconnect(df[cols])
     # 過濾全空欄位
     cols = [c for c in cols if clean[c].notna().any()]
     clean = clean[cols]
@@ -140,7 +142,7 @@ def plot_growth(df, output_path):
     """濁度當生長代理,看每小時生長率"""
     if "濁度(NTU)" not in df.columns:
         return False
-    clean = replace_disconnect(df[["濁度(NTU)"]]).astype(float)
+    clean = replace_disconnect(df[["濁度(NTU)"]])
     if clean["濁度(NTU)"].notna().sum() < 5:
         return False
 
