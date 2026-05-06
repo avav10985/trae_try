@@ -151,7 +151,7 @@ def generate_ai_report(day_df, date):
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(
             prompt,
-            generation_config={"max_output_tokens": 600},
+            generation_config={"max_output_tokens": 2000},  # 2.5-flash thinking 會吃 token
         )
         return response.text, None
     except Exception as e:

@@ -38,7 +38,7 @@ from email_helper import send_email, is_configured as email_configured
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 MODEL = "gemini-2.5-flash"
-MAX_TOKENS = 600
+MAX_TOKENS = 2000  # Gemini 2.5-flash 有 thinking 模式會吃掉 token,拉大避免日報被截斷
 
 
 def load_day(target_date):
