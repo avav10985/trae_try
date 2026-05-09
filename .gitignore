@@ -10,3 +10,7 @@ analysis/.streamlit/secrets.toml
 # 系統檔
 .DS_Store
 Thumbs.db
+
+# Word / Excel 草稿(本機保留,不進 git)
+*.docx
+*.xlsx
